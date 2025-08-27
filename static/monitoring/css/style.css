@@ -1,0 +1,156 @@
+/* Alert Rules Panel Styles */
+.alert-section {
+    max-height: 600px; /* Custom height for the alert rules panel */
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.alert-rule-item {
+    background: var(--grafana-panel-bg);
+    border: 1px solid var(--grafana-border-color);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+}
+
+.alert-rule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.alert-rule-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alert-severity {
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.alert-severity.critical {
+    background: var(--grafana-error);
+    color: white;
+}
+
+.alert-severity.warning {
+    background: var(--grafana-warning);
+    color: var(--grafana-text-color);
+}
+
+.alert-rule-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.alert-rule-details {
+    flex: 1;
+}
+
+.alert-rule-condition,
+.alert-rule-notification {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--grafana-text-color);
+}
+
+.alert-rule-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: var(--grafana-success);
+    color: white;
+}
+
+.last-triggered {
+    font-size: 0.75rem;
+    color: var(--grafana-text-muted);
+}
+
+/* Scrollbar styling for the alert section */
+.alert-section::-webkit-scrollbar {
+    width: 8px;
+}
+
+.alert-section::-webkit-scrollbar-track {
+    background: var(--grafana-panel-bg);
+}
+
+.alert-section::-webkit-scrollbar-thumb {
+    background: var(--grafana-border-color);
+    border-radius: 4px;
+}
+
+.alert-section::-webkit-scrollbar-thumb:hover {
+    background: var(--grafana-text-muted);
+}
+
+/* Sidebar Navigation Tooltips */
+.sidebar-nav li {
+    position: relative;
+}
+
+.sidebar-nav li::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--grafana-panel-bg);
+    color: var(--grafana-text-color);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--grafana-border-color);
+    z-index: 1000;
+    margin-left: 0.5rem;
+}
+
+.sidebar-nav li:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Add a small arrow to the tooltip */
+.sidebar-nav li::before {
+    content: '';
+    position: absolute;
+    left: calc(100% - 4px);
+    top: 50%;
+    transform: translateY(-50%);
+    border: 4px solid transparent;
+    border-right-color: var(--grafana-border-color);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1000;
+}
+
+.sidebar-nav li:hover::before {
+    opacity: 1;
+    visibility: visible;
+} 

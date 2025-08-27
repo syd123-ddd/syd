@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aMon - Kubernetes & Jenkins Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --grafana-bg: #1e1e1e;
+            --grafana-panel-bg: #2d2d2d;
+            --grafana-text: #d8d9da;
+            --grafana-text-muted: #8e8e93;
+            --grafana-border: #3d3d3d;
+            --grafana-success: #73bf69;
+            --grafana-warning: #f2c96d;
+            --grafana-error: #e24d42;
+            --grafana-info: #5794f2;
+            --grafana-hover: #3d3d3d;
+        }
+
+        body {
+            background-color: var(--grafana-bg);
+            color: var(--grafana-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .navbar {
+            background-color: var(--grafana-panel-bg) !important;
+            border-bottom: 1px solid var(--grafana-border);
+        }
+
+        .card {
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            border-radius: 3px;
+        }
+
+        .card-header {
+            background-color: var(--grafana-panel-bg);
+            border-bottom: 1px solid var(--grafana-border);
+            padding: 12px 16px;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        .log-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: var(--grafana-bg);
+            color: var(--grafana-text);
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            border: 1px solid var(--grafana-border);
+            border-radius: 3px;
+        }
+
+        .jenkins-status {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 3px;
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+        }
+
+        .status-success { border-left: 4px solid var(--grafana-success); }
+        .status-failure { border-left: 4px solid var(--grafana-error); }
+        .status-building { border-left: 4px solid var(--grafana-warning); }
+
+        .time-range-btn {
+            margin: 2px;
+            padding: 4px 8px;
+            font-size: 12px;
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            color: var(--grafana-text);
+        }
+
+        .time-range-btn:hover {
+            background-color: var(--grafana-hover);
+            color: var(--grafana-text);
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+
+        .log-entry:hover {
+            background-color: var(--grafana-hover);
+        }
+
+        .log-level-error { border-left-color: var(--grafana-error); }
+        .log-level-warn { border-left-color: var(--grafana-warning); }
+        .log-level-info { border-left-color: var(--grafana-info); }
+        .log-level-debug { border-left-color: var(--grafana-text-muted); }
+
+        .chart-container {
+            height: 200px;
+            margin-bottom: 15px;
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            border-radius: 3px;
+            padding: 10px;
+        }
+
+        .log-details {
+            background-color: var(--grafana-bg);
+            padding: 12px;
+            border-radius: 3px;
+            margin-top: 8px;
+            border: 1px solid var(--grafana-border);
+        }
+
+        .log-timestamp {
+            color: var(--grafana-text-muted);
+            margin-right: 10px;
+        }
+
+        .log-source {
+            color: var(--grafana-info);
+            margin-right: 10px;
+        }
+
+        .stats-summary {
+            padding: 12px;
+            background: #23262E;
+            border-radius: 3px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .stats-card {
+            background: #181B1F;
+            padding: 12px;
+            border-radius: 3px;
+            border: 1px solid #23262E;
+            text-align: center;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stats-card h6 {
+            color: #A7B1C2;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-value {
+            color: #F05A28;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .stats-card.error-rate .stats-value {
+            color: #E24D42;
+        }
+
+        .stats-card.warning-rate .stats-value {
+            color: #EAB839;
+        }
+
+        .stats-card.info-rate .stats-value {
+            color: #7EB26D;
+        }
+
+        .saved-queries {
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            border-radius: 3px;
+            padding: 8px;
+        }
+
+        .query-item {
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 3px;
+            margin-bottom: 4px;
+            border: 1px solid var(--grafana-border);
+        }
+
+        .query-item:hover {
+            background-color: var(--grafana-hover);
+        }
+
+        .pipeline-visualization {
+            height: 300px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 10px;
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            border-radius: 3px;
+        }
+
+        .pipeline-stage {
+            display: inline-block;
+            margin: 0 5px;
+            padding: 12px;
+            border-radius: 3px;
+            background-color: var(--grafana-panel-bg);
+            color: var(--grafana-text);
+            border: 1px solid var(--grafana-border);
+        }
+
+        .filter-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 2px;
+            border-radius: 12px;
+            background-color: var(--grafana-panel-bg);
+            color: var(--grafana-text);
+            font-size: 12px;
+            border: 1px solid var(--grafana-border);
+        }
+
+        .filter-tag i {
+            margin-left: 5px;
+            cursor: pointer;
+        }
+
+        .form-control {
+            background-color: #181B1F;
+            border: 1px solid #23262E;
+            color: #D8D9DA;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus {
+            background-color: #181B1F;
+            border-color: #F05A28;
+            color: #FFFFFF;
+            box-shadow: 0 0 0 0.2rem rgba(240, 90, 40, 0.25);
+        }
+
+        .form-control::placeholder {
+            color: #A7B1C2;
+        }
+
+        .btn-outline-secondary {
+            color: var(--grafana-text);
+            border-color: var(--grafana-border);
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--grafana-hover);
+            color: var(--grafana-text);
+            border-color: var(--grafana-border);
+        }
+
+        .btn-primary {
+            background-color: #F05A28;
+            border-color: #F05A28;
+            color: #FFFFFF;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #D84A18;
+            border-color: #D84A18;
+            color: #FFFFFF;
+        }
+
+        .modal-content {
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--grafana-border);
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--grafana-border);
+        }
+
+        .alert {
+            background-color: var(--grafana-panel-bg);
+            border: 1px solid var(--grafana-border);
+            color: var(--grafana-text);
+        }
+
+        .alert-danger {
+            border-left: 4px solid var(--grafana-error);
+        }
+
+        .alert-info {
+            border-left: 4px solid var(--grafana-info);
+        }
+
+        body {
+            background-color: #181B1F;
+            color: #D8D9DA;
+        }
+        .grafana-sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 60px;
+            background: #23262E;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+        }
+        .sidebar-logo {
+            color: #F05A28;
+            margin-bottom: 30px;
+        }
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            width: 100%;
+        }
+        .sidebar-nav li {
+            color: #A7B1C2;
+            padding: 18px 0 18px 0;
+            text-align: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .sidebar-nav li.active, .sidebar-nav li:hover {
+            background: #1F2227;
+            color: #F05A28;
+        }
+        .sidebar-nav li span {
+            display: none;
+        }
+        .sidebar-nav li.active span {
+            display: block;
+            position: absolute;
+            left: 70px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1F2227;
+            padding: 4px 12px;
+            border-radius: 3px;
+            font-size: 14px;
+            white-space: nowrap;
+            color: #F05A28;
+        }
+        .jenkins-status-card {
+            background: #181B1F;
+            border-radius: 3px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #23262E;
+            height: 100%;
+        }
+        .jenkins-metric-chart {
+            height: 100px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .jenkins-metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .jenkins-metric-title {
+            color: #A7B1C2;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .jenkins-metric-value {
+            color: #F05A28;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .jenkins-job-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .jenkins-job-item {
+            background: #181B1F;
+            border-radius: 3px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #23262E;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+        .jenkins-job-item:hover {
+            background: #23262E;
+            transform: translateX(4px);
+        }
+        .jenkins-job-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .jenkins-job-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .jenkins-job-status.success { background: #7EB26D; }
+        .jenkins-job-status.failure { background: #E24D42; }
+        .jenkins-job-status.building { background: #EAB839; }
+        .jenkins-job-status.pending { background: #A7B1C2; }
+        .jenkins-job-details {
+            display: flex;
+            flex-direction: column;
+        }
+        .jenkins-job-name {
+            color: #F05A28;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .jenkins-job-meta {
+            color: #A7B1C2;
+            font-size: 12px;
+        }
+        .jenkins-job-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .jenkins-job-action-btn {
+            background: none;
+            border: 1px solid #23262E;
+            color: #A7B1C2;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .jenkins-job-action-btn:hover {
+            background: #23262E;
+            color: #FFFFFF;
+        }
+        .grafana-topbar {
+            position: fixed;
+            left: 60px; right: 0; top: 0;
+            height: 48px;
+            background: #23262E;
+            display: flex;
+            align-items: center;
+            z-index: 900;
+            border-bottom: 1px solid #23262E;
+        }
+        .topbar-left {
+            flex: 1;
+            padding-left: 24px;
+            font-size: 16px;
+            color: #F05A28;
+        }
+        .topbar-center {
+            flex: 2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-search {
+            background: #181B1F;
+            border: 1px solid #23262E;
+            color: #D8D9DA;
+            width: 220px;
+        }
+        .topbar-timerange {
+            background: #181B1F;
+            border: 1px solid #23262E;
+            color: #D8D9DA;
+            width: 180px;
+        }
+        .topbar-right {
+            flex: 1;
+            text-align: right;
+            padding-right: 24px;
+            color: #A7B1C2;
+        }
+        .grafana-main {
+            margin-left: 60px;
+            margin-top: 48px;
+            padding: 24px 16px 0 16px;
+            min-height: 100vh;
+            background: #181B1F;
+            width: calc(100% - 60px);
+            overflow-x: hidden;
+        }
+        .grafana-panel {
+            background: #23262E;
+            border-radius: 4px;
+            margin-bottom: 24px;
+            padding: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid #23262E;
+            height: 450px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .alert-panel {
+            background: #23262E;
+            border-radius: 4px;
+            margin-bottom: 24px;
+            padding: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid #23262E;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grafana-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #181B1F;
+            background: #23262E;
+        }
+        .grafana-panel-title {
+            font-size: 15px;
+            color: #F05A28;
+            font-weight: 600;
+        }
+        .grafana-panel-actions button {
+            background: #181B1F;
+            color: #A7B1C2;
+            border: 1px solid #23262E;
+            border-radius: 3px;
+            margin-left: 8px;
+            font-size: 13px;
+            padding: 2px 10px;
+        }
+        .grafana-panel-actions button:hover {
+            background: #F05A28;
+            color: #fff;
+        }
+        .grafana-panel-body {
+            padding: 0 16px 16px 16px;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .grafana-mini-chart {
+            height: 200px;
+            width: 100%;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .grafana-log-table {
+            background: #181B1F;
+            color: #D8D9DA;
+            font-family: 'Fira Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            border-radius: 3px;
+            padding: 12px;
+            overflow-x: auto;
+            flex: 1;
+            overflow-y: auto;
+            width: 100%;
+        }
+        .grafana-log-row {
+            padding: 8px;
+            border-bottom: 1px solid #23262E;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transition: background-color 0.2s ease;
+            width: 100%;
+            min-width: 0;
+        }
+        .grafana-log-row:hover {
+            background-color: #23262E;
+        }
+        .grafana-log-row:last-child {
+            border-bottom: none;
+        }
+        .log-timestamp {
+            color: #A7B1C2;
+            min-width: 180px;
+            font-size: 12px;
+        }
+        .log-level {
+            min-width: 80px;
+            text-align: center;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .log-level-error {
+            background-color: rgba(226, 77, 66, 0.2);
+            color: #E24D42;
+        }
+        .log-level-warn {
+            background-color: rgba(242, 201, 109, 0.2);
+            color: #EAB839;
+        }
+        .log-level-info {
+            background-color: rgba(126, 178, 109, 0.2);
+            color: #7EB26D;
+        }
+        .log-level-debug {
+            background-color: rgba(81, 149, 206, 0.2);
+            color: #5195CE;
+        }
+        .log-content {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .log-message {
+            flex: 1;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        .log-namespace {
+            color: #F05A28;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+        .log-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .log-action-btn {
+            background: none;
+            border: 1px solid #23262E;
+            color: #A7B1C2;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .log-action-btn:hover {
+            background-color: #23262E;
+            color: #FFFFFF;
+        }
+        .log-filter-tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #23262E;
+            color: #A7B1C2;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin: 2px;
+            gap: 4px;
+        }
+        .log-filter-tag i {
+            cursor: pointer;
+            color: #F05A28;
+        }
+        .log-filter-tag i:hover {
+            color: #D84A18;
+        }
+        .jenkins-view-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .jenkins-view-tab {
+            padding: 8px 16px;
+            background: #181B1F;
+            border: 1px solid #23262E;
+            color: #A7B1C2;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .jenkins-view-tab.active {
+            background: #F05A28;
+            color: #FFFFFF;
+            border-color: #F05A28;
+        }
+        .jenkins-pipeline-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .jenkins-pipeline-item {
+            background: #181B1F;
+            border-radius: 3px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #23262E;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .jenkins-pipeline-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .jenkins-pipeline-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .jenkins-pipeline-status.success { background: #7EB26D; }
+        .jenkins-pipeline-status.failure { background: #E24D42; }
+        .jenkins-pipeline-status.building { background: #EAB839; }
+        .jenkins-pipeline-status.pending { background: #A7B1C2; }
+        .jenkins-pipeline-details {
+            display: flex;
+            flex-direction: column;
+        }
+        .jenkins-pipeline-name {
+            color: #F05A28;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .jenkins-pipeline-meta {
+            color: #A7B1C2;
+            font-size: 12px;
+        }
+        .jenkins-pipeline-stages {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .jenkins-pipeline-stage {
+            padding: 4px 8px;
+            background: #23262E;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #A7B1C2;
+        }
+
+        /* Alert Management Styles */
+        .alert-rules-container {
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .alert-section {
+            background: #181B1F;
+            border-radius: 4px;
+            padding: 16px;
+        }
+
+        .alert-section-header h6 {
+            color: #F05A28;
+            font-weight: 600;
+        }
+
+        .alert-rule-item {
+            background: #23262E;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            border: 1px solid #2D2F36;
+        }
+
+        .alert-rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #2D2F36;
+        }
+
+        .alert-rule-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-severity {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .alert-severity.critical {
+            background: rgba(226, 77, 66, 0.2);
+            color: #E24D42;
+        }
+
+        .alert-severity.warning {
+            background: rgba(242, 201, 109, 0.2);
+            color: #EAB839;
+        }
+
+        .alert-rule-content {
+            padding: 12px 16px;
+        }
+
+        .alert-rule-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .alert-rule-condition,
+        .alert-rule-notification {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #A7B1C2;
+            font-size: 13px;
+        }
+
+        .alert-rule-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.active {
+            background: rgba(126, 178, 109, 0.2);
+            color: #7EB26D;
+        }
+
+        .last-triggered {
+            color: #A7B1C2;
+        }
+
+        .config-section {
+            background: #181B1F;
+            border-radius: 4px;
+            padding: 16px;
+        }
+
+        .config-section h6 {
+            color: #F05A28;
+            font-weight: 600;
+        }
+
+        .alert-rules {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .alert-rules-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="grafana-sidebar">
+        <div class="sidebar-logo mb-4">
+            <i class="fas fa-chart-bar fa-2x"></i>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="active" onclick="showPanel('loki')" data-tooltip="Loki Monitoring">
+                <i class="fas fa-stream"></i>
+            </li>
+            <li onclick="showPanel('jenkins')" data-tooltip="Jenkins Status">
+                <i class="fas fa-cogs"></i>
+            </li>
+            <li onclick="showPanel('alerts')" data-tooltip="Alert Management">
+                <i class="fas fa-bell"></i>
+            </li>
+        </ul>
+    </div>
+    <!-- Top Bar -->
+    <nav class="grafana-topbar">
+        <div class="topbar-left">
+            <span class="topbar-title">Loki Monitoring</span>
+        </div>
+            
+        <div class="topbar-right">
+            <i class="fas fa-user-circle fa-lg"></i>
+        </div>
+    </nav>
+    <div class="grafana-main container-fluid">
+        <!-- Loki Monitoring Panel -->
+        <div id="loki-panel" class="panel-content">
+        <div class="row">
+                <!-- Loki Metrics Panel -->
+                <div class="col-md-6 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Loki Metrics (All Namespaces)</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshMetrics()">Refresh</button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="lokiMetricsChart"></canvas>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-6">
+                                    <div class="stats-card">
+                                        <h6>Total Log Lines</h6>
+                                        <div id="totalLogLines">0</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stats-card">
+                                        <h6>Error Rate</h6>
+                                        <div id="errorRate">0%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Statistics Panel -->
+                <div class="col-md-6 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Log Statistics</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshLogStats()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="logStatsChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stats-summary">
+                                        <div class="stats-card">
+                                            <h6>Total Logs</h6>
+                                            <div id="totalLogsCount" class="stats-value">0</div>
+                                        </div>
+                                        <div class="stats-card error-rate">
+                                            <h6>Error Rate</h6>
+                                            <div id="errorRateStats" class="stats-value">0%</div>
+                                        </div>
+                                        <div class="stats-card warning-rate">
+                                            <h6>Warning Rate</h6>
+                                            <div id="warningRateStats" class="stats-value">0%</div>
+                                        </div>
+                                        <div class="stats-card info-rate">
+                                            <h6>Info Rate</h6>
+                                            <div id="infoRateStats" class="stats-value">0%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loki Logs Panel -->
+                <div class="col-12 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Loki Logs</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshLogs()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button onclick="exportLogs()">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                                <button onclick="clearLogs()">
+                                    <i class="fas fa-trash"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="mb-3">
+                                <div id="activeFilters" class="d-flex flex-wrap gap-2 mb-2"></div>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="logFilter" placeholder="Filter logs...">
+                                    <button class="btn btn-primary" onclick="applyLogFilter()">
+                                        <i class="fas fa-filter"></i> Filter
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="grafana-log-table" id="lokiLogs">
+                                <!-- Log entries will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jenkins Status Panel -->
+        <div id="jenkins-panel" class="panel-content" style="display: none;">
+            <div class="row">
+                <!-- Server Status Panel -->
+                <div class="col-12 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Jenkins Server Status</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshJenkinsStatus()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="jenkins-status-card">
+                                        <div class="jenkins-metric-header">
+                                            <span class="jenkins-metric-title">CPU Usage</span>
+                                            <span class="jenkins-metric-value" id="cpuValue">45%</span>
+                                        </div>
+                                        <div class="jenkins-metric-chart">
+                                            <canvas id="cpuChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="jenkins-status-card">
+                                        <div class="jenkins-metric-header">
+                                            <span class="jenkins-metric-title">Memory Usage</span>
+                                            <span class="jenkins-metric-value" id="memoryValue">2.4GB / 4GB</span>
+                                        </div>
+                                        <div class="jenkins-metric-chart">
+                                            <canvas id="memoryChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="jenkins-status-card">
+                                        <div class="jenkins-metric-header">
+                                            <span class="jenkins-metric-title">Network I/O</span>
+                                            <span class="jenkins-metric-value" id="networkValue">1.2MB/s</span>
+                                        </div>
+                                        <div class="jenkins-metric-chart">
+                                            <canvas id="networkChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pipeline and Jobs Panel -->
+                <div class="col-md-6 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Pipeline Status</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshJobs()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="jenkins-pipeline-list">
+                                <div class="jenkins-pipeline-item">
+                                    <div class="jenkins-pipeline-info">
+                                        <div class="jenkins-pipeline-status success"></div>
+                                        <div class="jenkins-pipeline-details">
+                                            <div class="jenkins-pipeline-name">CI/CD Pipeline</div>
+                                            <div class="jenkins-pipeline-meta">
+                                                <span>Build #123</span> • 
+                                                <span>Completed</span> • 
+                                                <span>5 minutes ago</span>
+                                            </div>
+                                            <div class="jenkins-pipeline-stages">
+                                                <div class="jenkins-pipeline-stage">Build</div>
+                                                <div class="jenkins-pipeline-stage">Test</div>
+                                                <div class="jenkins-pipeline-stage">Deploy</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="jenkins-pipeline-item">
+                                    <div class="jenkins-pipeline-info">
+                                        <div class="jenkins-pipeline-status building"></div>
+                                        <div class="jenkins-pipeline-details">
+                                            <div class="jenkins-pipeline-name">Release Pipeline</div>
+                                            <div class="jenkins-pipeline-meta">
+                                                <span>Build #456</span> • 
+                                                <span>In Progress</span> • 
+                                                <span>1m 30s elapsed</span>
+                                            </div>
+                                            <div class="jenkins-pipeline-stages">
+                                                <div class="jenkins-pipeline-stage">Build</div>
+                                                <div class="jenkins-pipeline-stage">Test</div>
+                                                <div class="jenkins-pipeline-stage">Deploy</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="grafana-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Job Status</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="refreshJobs()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="jenkins-job-list">
+                                <div class="jenkins-job-item">
+                                    <div class="jenkins-job-info">
+                                        <div class="jenkins-job-status success"></div>
+                                        <div class="jenkins-job-details">
+                                            <div class="jenkins-job-name">frontend-build</div>
+                                            <div class="jenkins-job-meta">
+                                                <span>Build #123</span> • 
+                                                <span>2m 15s</span> • 
+                                                <span>5 minutes ago</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="jenkins-job-item">
+                                    <div class="jenkins-job-info">
+                                        <div class="jenkins-job-status building"></div>
+                                        <div class="jenkins-job-details">
+                                            <div class="jenkins-job-name">backend-deploy</div>
+                                            <div class="jenkins-job-meta">
+                                                <span>Build #456</span> • 
+                                                <span>Building...</span> • 
+                                                <span>1m 30s elapsed</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="jenkins-job-item">
+                                    <div class="jenkins-job-info">
+                                        <div class="jenkins-job-status failure"></div>
+                                        <div class="jenkins-job-details">
+                                            <div class="jenkins-job-name">database-migration</div>
+                                            <div class="jenkins-job-meta">
+                                                <span>Build #789</span> • 
+                                                <span>Failed</span> • 
+                                                <span>10 minutes ago</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Management Panel -->
+        <div id="alerts-panel" class="panel-content" style="display: none;">
+            <div class="row">
+                <!-- Alert Rules Panel -->
+                <div class="col-md-8 mb-4">
+                    <div class="alert-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Alert Rules</span>
+                            <div class="grafana-panel-actions">
+                                <button onclick="addAlertRule()">
+                                    <i class="fas fa-plus"></i> Add Rule
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="alert-rules-container">
+                                <!-- Loki Alerts Section -->
+                                <div class="alert-section mb-4">
+                                    <div class="alert-section-header">
+                                        <h6 class="mb-3">Loki Alerts</h6>
+                                    </div>
+                                    <div class="alert-rule-item">
+                                        <div class="alert-rule-header">
+                                            <div class="alert-rule-title">
+                                                <span class="alert-severity critical">Critical</span>
+                                                <span>High Error Rate</span>
+                                            </div>
+                                            <div class="alert-rule-actions">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="editAlertRule(1)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAlertRule(1)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="alert-rule-content">
+                                            <div class="alert-rule-details">
+                                                <div class="alert-rule-condition">
+                                                    <i class="fas fa-code"></i>
+                                                    <span>Error rate > 10% in 5m</span>
+                                                </div>
+                                                <div class="alert-rule-notification">
+                                                    <i class="fas fa-bell"></i>
+                                                    <span>Slack: #alerts-critical</span>
+                                                </div>
+                                            </div>
+                                            <div class="alert-rule-status">
+                                                <span class="status-badge active">Active</span>
+                                                <span class="last-triggered">Last triggered: 2 hours ago</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert-rule-item">
+                                        <div class="alert-rule-header">
+                                            <div class="alert-rule-title">
+                                                <span class="alert-severity warning">Warning</span>
+                                                <span>Service Down</span>
+                                            </div>
+                                            <div class="alert-rule-actions">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="editAlertRule(2)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAlertRule(2)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="alert-rule-content">
+                                            <div class="alert-rule-details">
+                                                <div class="alert-rule-condition">
+                                                    <i class="fas fa-code"></i>
+                                                    <span>No logs for 5m</span>
+                                                </div>
+                                                <div class="alert-rule-notification">
+                                                    <i class="fas fa-bell"></i>
+                                                    <span>Slack: #alerts-warning</span>
+                                                </div>
+                                            </div>
+                                            <div class="alert-rule-status">
+                                                <span class="status-badge active">Active</span>
+                                                <span class="last-triggered">Last triggered: 1 day ago</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Jenkins Alerts Section -->
+                                <div class="alert-section">
+                                    <div class="alert-section-header">
+                                        <h6 class="mb-3">Jenkins Alerts</h6>
+                                    </div>
+                                    <div class="alert-rule-item">
+                                        <div class="alert-rule-header">
+                                            <div class="alert-rule-title">
+                                                <span class="alert-severity critical">Critical</span>
+                                                <span>Build Failure</span>
+                                            </div>
+                                            <div class="alert-rule-actions">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="editAlertRule(3)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAlertRule(3)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="alert-rule-content">
+                                            <div class="alert-rule-details">
+                                                <div class="alert-rule-condition">
+                                                    <i class="fas fa-code"></i>
+                                                    <span>Build failure in last 10m</span>
+                                                </div>
+                                                <div class="alert-rule-notification">
+                                                    <i class="fas fa-bell"></i>
+                                                    <span>Slack: #jenkins-alerts</span>
+                                                </div>
+                                            </div>
+                                            <div class="alert-rule-status">
+                                                <span class="status-badge active">Active</span>
+                                                <span class="last-triggered">Last triggered: 30 minutes ago</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Configuration Panel -->
+                <div class="col-md-4 mb-4">
+                    <div class="alert-panel">
+                        <div class="grafana-panel-header">
+                            <span class="grafana-panel-title">Alert Configuration</span>
+                        </div>
+                        <div class="grafana-panel-body">
+                            <div class="alert-config-section">
+                                <!-- Slack Integration -->
+                                <div class="config-section mb-4">
+                                    <h6 class="mb-3">Slack Integration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Webhook URL</label>
+                                        <input type="text" class="form-control" id="slackWebhook" placeholder="https://hooks.slack.com/services/...">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Default Channel</label>
+                                        <input type="text" class="form-control" id="slackChannel" placeholder="#alerts">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Notification Format</label>
+                                        <select class="form-select" id="notificationFormat">
+                                            <option value="simple">Simple</option>
+                                            <option value="detailed">Detailed</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Alert Settings -->
+                                <div class="config-section">
+                                    <h6 class="mb-3">Alert Settings</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Alert Check Interval</label>
+                                        <select class="form-select" id="alertInterval">
+                                            <option value="1">1 minute</option>
+                                            <option value="5">5 minutes</option>
+                                            <option value="15">15 minutes</option>
+                                            <option value="30">30 minutes</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Alert Cooldown</label>
+                                        <select class="form-select" id="alertCooldown">
+                                            <option value="5">5 minutes</option>
+                                            <option value="15">15 minutes</option>
+                                            <option value="30">30 minutes</option>
+                                            <option value="60">1 hour</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="enableAlerts" checked>
+                                            <label class="form-check-label">Enable Alerts</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary w-100" onclick="saveAlertConfig()">
+                                    Save Configuration
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Queries Modal -->
+    <div class="modal fade" id="savedQueriesModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Saved Queries</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="saved-queries" id="savedQueriesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Auto-refresh Interval (seconds)</label>
+                        <input type="number" class="form-control" id="refreshInterval" value="60">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Log Display Limit</label>
+                        <input type="number" class="form-control" id="logLimit" value="1000">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                            <label class="form-check-label">Enable Auto-refresh</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script>
+        let logChart = null;
+        let savedQueries = JSON.parse(localStorage.getItem('savedQueries') || '[]');
+        let settings = JSON.parse(localStorage.getItem('settings') || '{"refreshInterval": 60, "logLimit": 1000, "autoRefresh": true}');
+        let activeFilters = new Set();
+
+        $(document).ready(function() {
+            $('#dateRange').daterangepicker({
+                timePicker: true,
+                startDate: moment().subtract(1, 'hours'),
+                endDate: moment(),
+                locale: {
+                    format: 'YYYY-MM-DD HH:mm:ss'
+                },
+                ranges: {
+                    'Last 15 minutes': [moment().subtract(15, 'minutes'), moment()],
+                    'Last 30 minutes': [moment().subtract(30, 'minutes'), moment()],
+                    'Last 1 hour': [moment().subtract(1, 'hours'), moment()],
+                    'Last 3 hours': [moment().subtract(3, 'hours'), moment()],
+                    'Last 6 hours': [moment().subtract(6, 'hours'), moment()],
+                    'Last 12 hours': [moment().subtract(12, 'hours'), moment()],
+                    'Last 24 hours': [moment().subtract(24, 'hours'), moment()],
+                    'Last 7 days': [moment().subtract(7, 'days'), moment()],
+                    'Last 30 days': [moment().subtract(30, 'days'), moment()]
+                }
+            });
+
+            const ctx = document.getElementById('logChart').getContext('2d');
+            logChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Log Count',
+                        data: [],
+                        borderColor: 'var(--grafana-info)',
+                        backgroundColor: 'rgba(87, 148, 242, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'var(--grafana-border)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'var(--grafana-text-muted)',
+                                maxRotation: 0
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'var(--grafana-border)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'var(--grafana-text-muted)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'var(--grafana-panel-bg)',
+                            titleColor: 'var(--grafana-text)',
+                            bodyColor: 'var(--grafana-text)',
+                            borderColor: 'var(--grafana-border)',
+                            borderWidth: 1,
+                            padding: 8,
+                            displayColors: false
+                        },
+                        zoom: {
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'xy'
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'xy'
+                            }
+                        }
+                    }
+                }
+            });
+
+            updateSavedQueriesList();
+
+            $('.time-range-btn').click(function() {
+                const minutes = $(this).data('minutes');
+                const end = moment();
+                const start = moment().subtract(minutes, 'minutes');
+                $('#dateRange').data('daterangepicker').setStartDate(start);
+                $('#dateRange').data('daterangepicker').setEndDate(end);
+                queryLogs();
+            });
+
+            $('#refreshInterval').val(settings.refreshInterval);
+            $('#logLimit').val(settings.logLimit);
+            $('#autoRefresh').prop('checked', settings.autoRefresh);
+
+            if (settings.autoRefresh) {
+                startAutoRefresh();
+            }
+        });
+
+        function saveCurrentQuery() {
+            const query = $('#logQuery').val();
+            const name = prompt('Enter a name for this query:');
+            if (name) {
+                savedQueries.push({ name, query });
+                localStorage.setItem('savedQueries', JSON.stringify(savedQueries));
+                updateSavedQueriesList();
+            }
+        }
+
+        function updateSavedQueriesList() {
+            const list = $('#savedQueriesList');
+            list.empty();
+            savedQueries.forEach((query, index) => {
+                list.append(`
+                    <div class="query-item" onclick="loadQuery(${index})">
+                        <div class="d-flex justify-content-between">
+                            <span>${query.name}</span>
+                            <button class="btn btn-sm btn-danger" onclick="deleteQuery(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">${query.query}</small>
+                    </div>
+                `);
+            });
+        }
+
+        function loadQuery(index) {
+            const query = savedQueries[index];
+            $('#logQuery').val(query.query);
+            queryLogs();
+            $('#savedQueriesModal').modal('hide');
+        }
+
+        function deleteQuery(index) {
+            savedQueries.splice(index, 1);
+            localStorage.setItem('savedQueries', JSON.stringify(savedQueries));
+            updateSavedQueriesList();
+        }
+
+        function saveSettings() {
+            settings = {
+                refreshInterval: parseInt($('#refreshInterval').val()),
+                logLimit: parseInt($('#logLimit').val()),
+                autoRefresh: $('#autoRefresh').is(':checked')
+            };
+            localStorage.setItem('settings', JSON.stringify(settings));
+            if (settings.autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+            $('#settingsModal').modal('hide');
+        }
+
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            window.refreshInterval = setInterval(queryLogs, settings.refreshInterval * 1000);
+        }
+
+        function stopAutoRefresh() {
+            if (window.refreshInterval) {
+                clearInterval(window.refreshInterval);
+            }
+        }
+
+        function exportLogs() {
+            const logs = $('#logResults').text();
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs_${moment().format('YYYY-MM-DD_HH-mm-ss')}.txt`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function addFilter(filter) {
+            activeFilters.add(filter);
+            updateFilters();
+        }
+
+        function removeFilter(filter) {
+            activeFilters.delete(filter);
+            updateFilters();
+        }
+
+        function updateFilters() {
+            const container = $('#activeFilters');
+            container.empty();
+            activeFilters.forEach(filter => {
+                container.append(`
+                    <span class="filter-tag">
+                        ${filter}
+                        <i class="fas fa-times" onclick="removeFilter('${filter}')"></i>
+                    </span>
+                `);
+            });
+        }
+
+        function queryLogs() {
+            const query = $('#logQuery').val();
+            const dateRange = $('#dateRange').val().split(' - ');
+            
+            fetch('/api/loki/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    start_time: dateRange[0],
+                    end_time: dateRange[1],
+                    limit: settings.logLimit
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayLogs(data);
+                updateChart(data);
+                updateStats(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                $('#logResults').html('<div class="alert alert-danger">Error fetching logs</div>');
+            });
+        }
+
+        function updateStats(data) {
+            if (!data.data || !data.data.result) return;
+
+            let totalLogs = 0;
+            let errorCount = 0;
+            let uniqueSources = new Set();
+            let totalLogSize = 0;
+
+            data.data.result.forEach(result => {
+                result.values.forEach(([timestamp, log]) => {
+                    totalLogs++;
+                    if (log.toLowerCase().includes('error')) errorCount++;
+                    if (result.stream.namespace) uniqueSources.add(result.stream.namespace);
+                    totalLogSize += log.length;
+                });
+            });
+
+            $('#totalLogs').text(totalLogs);
+            $('#errorRate').text(`${((errorCount / totalLogs) * 100).toFixed(1)}%`);
+            $('#uniqueSources').text(uniqueSources.size);
+            $('#avgLogSize').text(`${(totalLogSize / totalLogs / 1024).toFixed(1)} KB`);
+        }
+
+        function updateChart(data) {
+            if (!data.data || !data.data.result) return;
+
+            const timeLabels = [];
+            const logCounts = [];
+            const logLevels = {
+                error: [],
+                warn: [],
+                info: [],
+                debug: []
+            };
+
+            data.data.result.forEach(result => {
+                result.values.forEach(([timestamp, log]) => {
+                    const time = new Date(timestamp * 1000);
+                    const timeStr = time.toLocaleTimeString();
+                    
+                    if (!timeLabels.includes(timeStr)) {
+                        timeLabels.push(timeStr);
+                        logCounts.push(1);
+                        Object.keys(logLevels).forEach(level => logLevels[level].push(0));
+                    } else {
+                        const index = timeLabels.indexOf(timeStr);
+                        logCounts[index]++;
+                    }
+
+                    const level = getLogLevel(log);
+                    const index = timeLabels.indexOf(timeStr);
+                    logLevels[level][index]++;
+                });
+            });
+
+            logChart.data.labels = timeLabels;
+            logChart.data.datasets = [
+                {
+                    label: 'Total',
+                    data: logCounts,
+                    borderColor: 'var(--grafana-info)',
+                    backgroundColor: 'rgba(87, 148, 242, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Error',
+                    data: logLevels.error,
+                    borderColor: 'var(--grafana-error)',
+                    backgroundColor: 'rgba(226, 77, 66, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Warning',
+                    data: logLevels.warn,
+                    borderColor: 'var(--grafana-warning)',
+                    backgroundColor: 'rgba(242, 201, 109, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.4,
+                    fill: true
+                }
+            ];
+            logChart.update();
+        }
+
+        function getLogLevel(log) {
+            const lowerLog = log.toLowerCase();
+            if (lowerLog.includes('error')) return 'error';
+            if (lowerLog.includes('warn')) return 'warn';
+            if (lowerLog.includes('info')) return 'info';
+            if (lowerLog.includes('debug')) return 'debug';
+            return 'info';
+        }
+
+        function displayLogs(data) {
+            const logResults = $('#lokiLogs');
+            logResults.empty();
+
+            if (data.data && data.data.result) {
+                data.data.result.forEach(result => {
+                    result.values.forEach(([timestamp, log]) => {
+                        const level = getLogLevel(log);
+                        const time = new Date(timestamp / 1000000);
+                        const namespace = result.stream.namespace || 'unknown';
+                        
+                        const logEntry = $(`
+                            <div class="grafana-log-row">
+                                <span class="log-timestamp">${time.toLocaleString()}</span>
+                                <span class="log-level log-level-${level}">${level.toUpperCase()}</span>
+                                <div class="log-content">
+                                    <div>
+                                        <span class="log-namespace">${namespace}</span>
+                                <span class="log-message">${log}</span>
+                                    </div>
+                                    <div class="log-actions">
+                                        <button class="log-action-btn" onclick="addLogFilter('${namespace}')">
+                                            <i class="fas fa-filter"></i> Filter Namespace
+                                        </button>
+                                        <button class="log-action-btn" onclick="copyLogMessage('${log.replace(/'/g, "\\'")}')">
+                                            <i class="fas fa-copy"></i> Copy
+                                        </button>
+                                        <button class="log-action-btn" onclick="showLogDetails(this)">
+                                            <i class="fas fa-expand"></i> Details
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        logResults.append(logEntry);
+                    });
+                });
+            } else {
+                logResults.html('<div class="alert alert-info">No logs found</div>');
+            }
+        }
+
+        function addLogFilter(value) {
+            if (!activeFilters.has(value)) {
+                activeFilters.add(value);
+                updateFilters();
+            }
+        }
+
+        function removeLogFilter(value) {
+            activeFilters.delete(value);
+            updateFilters();
+        }
+
+        function applyLogFilter() {
+            const filterText = $('#logFilter').val().toLowerCase();
+            $('.grafana-log-row').each(function() {
+                const logText = $(this).text().toLowerCase();
+                const matchesFilter = filterText === '' || logText.includes(filterText);
+                const matchesActiveFilters = Array.from(activeFilters).every(filter => 
+                    logText.includes(filter.toLowerCase())
+                );
+                $(this).toggle(matchesFilter && matchesActiveFilters);
+            });
+        }
+
+        function copyLogMessage(message) {
+            navigator.clipboard.writeText(message).then(() => {
+                const toast = $('<div class="alert alert-success">Log message copied to clipboard</div>');
+                $('body').append(toast);
+                setTimeout(() => toast.remove(), 2000);
+            });
+        }
+
+        function clearLogs() {
+            $('#lokiLogs').empty();
+            activeFilters.clear();
+            updateFilters();
+        }
+
+        function showLogDetails(element) {
+            const logRow = $(element).closest('.grafana-log-row');
+            const details = logRow.find('.log-details');
+            
+            if (details.length) {
+                details.remove();
+            } else {
+                const logMessage = logRow.find('.log-message').text();
+                const detailsHtml = `
+                    <div class="log-details mt-2 p-3" style="background: #23262E; border-radius: 3px;">
+                        <pre style="margin: 0; white-space: pre-wrap;">${logMessage}</pre>
+                    </div>
+                `;
+                logRow.find('.log-content').append(detailsHtml);
+            }
+        }
+
+        function loadJenkinsJobs() {
+            fetch('/api/jenkins/jobs/')
+                .then(response => response.json())
+                .then(data => {
+                    displayJenkinsJobs(data.jobs);
+                    updatePipelineVisualization(data.jobs);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    $('#jenkinsJobs').html('<div class="alert alert-danger">Error loading Jenkins jobs</div>');
+                });
+        }
+
+        function updatePipelineVisualization(jobs) {
+            const container = $('#pipelineVisualization');
+            container.empty();
+
+            jobs.forEach(job => {
+                const statusClass = job.color === 'blue' ? 'stage-success' :
+                                  job.color === 'red' ? 'stage-failure' :
+                                  'stage-building';
+                
+                const lastBuild = job.lastBuild ? job.lastBuild.number : 'N/A';
+                const lastBuildTime = job.lastBuild ? new Date(job.lastBuild.timestamp).toLocaleString() : 'N/A';
+                
+                container.append(`
+                    <div class="pipeline-stage ${statusClass}">
+                        <h6>${job.name}</h6>
+                        <small>Build #${lastBuild}</small><br>
+                        <small>${lastBuildTime}</small>
+                    </div>
+                `);
+            });
+        }
+
+        function displayJenkinsJobs(jobs) {
+            const jobsContainer = $('#jenkinsJobs');
+            jobsContainer.empty();
+
+            jobs.forEach(job => {
+                const statusClass = job.color === 'blue' ? 'status-success' :
+                                  job.color === 'red' ? 'status-failure' :
+                                  'status-building';
+                
+                const lastBuild = job.lastBuild ? job.lastBuild.number : 'N/A';
+                const lastBuildTime = job.lastBuild ? new Date(job.lastBuild.timestamp).toLocaleString() : 'N/A';
+                const duration = job.lastBuild ? (job.lastBuild.duration / 1000).toFixed(1) : 'N/A';
+                
+                jobsContainer.append(`
+                    <div class="jenkins-status ${statusClass}">
+                        <h6>${job.name}</h6>
+                        <small>Last Build: #${lastBuild}</small><br>
+                        <small>Last Build Time: ${lastBuildTime}</small><br>
+                        <small>Duration: ${duration}s</small>
+                    </div>
+                `);
+            });
+        }
+
+        function renderGrafanaPanels(logData) {
+            const panelsContainer = document.getElementById('grafana-panels');
+            panelsContainer.innerHTML = '';
+            Object.keys(logData).forEach(service => {
+                const panel = document.createElement('div');
+                panel.className = 'col-md-6 grafana-panel';
+                panel.innerHTML = `
+                    <div class="grafana-panel-header">
+                        <span class="grafana-panel-title">${service}</span>
+                        <div class="grafana-panel-actions">
+                            <button>Include</button>
+                            <button>Show logs</button>
+                        </div>
+                    </div>
+                    <div class="grafana-panel-body">
+                        <canvas class="grafana-mini-chart" id="chart-${service}"></canvas>
+                        <div class="grafana-log-table">
+                            ${logData[service].map(log => `
+                                <div class="grafana-log-row log-level-${log.level}">
+                                    ${log.timestamp} <span class="log-level-${log.level}">${log.level}</span> ${log.message}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                panelsContainer.appendChild(panel);
+            });
+        }
+
+        let lokiMetricsChart = null;
+
+        function initLokiMetricsChart() {
+            const ctx = document.getElementById('lokiMetricsChart').getContext('2d');
+            lokiMetricsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Log Volume',
+                        data: [],
+                        borderColor: '#F05A28',  // Bright orange
+                        backgroundColor: 'rgba(240, 90, 40, 0.1)',  // Semi-transparent orange
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',  // Lighter grid lines
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#A7B1C2',  // Lighter text color
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',  // Lighter grid lines
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#A7B1C2',  // Lighter text color
+                                precision: 0
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(35, 38, 46, 0.95)',  // Semi-transparent dark background
+                            titleColor: '#FFFFFF',  // White title
+                            bodyColor: '#F05A28',  // Orange text
+                            borderColor: '#F05A28',  // Orange border
+                            borderWidth: 1,
+                            padding: 8,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Logs: ${context.parsed.y.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function refreshMetrics() {
+            fetch('/api/loki/metrics/')
+                .then(response => response.json())
+                .then(data => {
+                    updateMetricsChart(data);
+                    updateMetricsStats(data);
+                })
+                .catch(error => console.error('Error fetching metrics:', error));
+        }
+
+        function refreshLogs() {
+            fetch('/api/loki/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: '{namespace="prod"}',
+                    start_time: moment().subtract(1, 'hours').format('YYYY-MM-DD HH:mm:ss'),
+                    end_time: moment().format('YYYY-MM-DD HH:mm:ss')
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayLogs(data);
+            })
+            .catch(error => {
+                console.error('Error fetching logs:', error);
+                $('#lokiLogs').html('<div class="alert alert-danger">Error fetching logs</div>');
+            });
+        }
+
+        function executeQuery(query = null) {
+            const queryInput = query || document.getElementById('lokiQuery').value;
+            if (!queryInput) {
+                queryInput = '{namespace="prod"}';
+            }
+
+            fetch('/api/loki/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: queryInput,
+                    start_time: moment().subtract(1, 'hours').format('YYYY-MM-DD HH:mm:ss'),
+                    end_time: moment().format('YYYY-MM-DD HH:mm:ss')
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayLogs(data);
+            })
+            .catch(error => {
+                console.error('Error executing query:', error);
+                $('#lokiLogs').html('<div class="alert alert-danger">Error fetching logs</div>');
+            });
+        }
+
+        function updateMetricsChart(data) {
+            if (!lokiMetricsChart) {
+                initLokiMetricsChart();
+            }
+
+            const timestamps = [];
+            const values = [];
+
+            data.data.result.forEach(result => {
+                result.values.forEach(([timestamp, value]) => {
+                    timestamps.push(new Date(timestamp * 1000).toLocaleTimeString());
+                    values.push(parseFloat(value));
+                });
+            });
+
+            const maxPoints = 60;
+            if (timestamps.length > maxPoints) {
+                const step = Math.ceil(timestamps.length / maxPoints);
+                timestamps = timestamps.filter((_, i) => i % step === 0);
+                values = values.filter((_, i) => i % step === 0);
+            }
+
+            lokiMetricsChart.data.labels = timestamps;
+            lokiMetricsChart.data.datasets[0].data = values;
+            lokiMetricsChart.update('none');
+        }
+
+        function updateMetricsStats(data) {
+            let totalLogs = 0;
+            let errorCount = 0;
+
+            data.data.result.forEach(result => {
+                result.values.forEach(([_, value]) => {
+                    totalLogs += parseFloat(value);
+                    if (result.metric.level === 'error') {
+                        errorCount += parseFloat(value);
+                    }
+                });
+            });
+
+            document.getElementById('totalLogLines').textContent = totalLogs.toLocaleString();
+            document.getElementById('errorRate').textContent = 
+                totalLogs > 0 ? `${((errorCount / totalLogs) * 100).toFixed(1)}%` : '0%';
+        }
+
+        // Initialize charts when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initLokiMetricsChart();
+            initLogStatsChart();
+            refreshMetrics();
+            refreshLogs();
+            refreshLogStats();
+        });
+
+        // Add auto-refresh for logs
+        setInterval(refreshLogs, 30000);  // Refresh logs every 30 seconds
+
+        let logStatsChart = null;
+
+        function initLogStatsChart() {
+            const ctx = document.getElementById('logStatsChart').getContext('2d');
+            logStatsChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ERROR', 'WARNING', 'INFO', 'UNKNOWN'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',    // Error - Pink
+                            'rgba(255, 205, 86, 0.8)',    // Warning - Yellow
+                            'rgba(75, 192, 192, 0.8)',    // Info - Teal
+                            'rgba(54, 162, 235, 0.8)'     // Unknown - Blue
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#A7B1C2',
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(35, 38, 46, 0.95)',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#F05A28',
+                            borderColor: '#F05A28',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true
+                    }
+                }
+            });
+        }
+
+        function refreshLogStats() {
+            fetch('/api/loki/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: '{namespace="prod"}',
+                    start_time: moment().subtract(1, 'hours').format('YYYY-MM-DD HH:mm:ss'),
+                    end_time: moment().format('YYYY-MM-DD HH:mm:ss')
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateLogStats(data);
+            })
+            .catch(error => {
+                console.error('Error fetching log stats:', error);
+            });
+        }
+
+        function updateLogStats(data) {
+            if (!logStatsChart) {
+                initLogStatsChart();
+            }
+
+            const stats = {
+                error: 0,
+                warning: 0,
+                info: 0,
+                unknown: 0
+            };
+
+            if (data.data && data.data.result) {
+                data.data.result.forEach(result => {
+                    result.values.forEach(([_, log]) => {
+                        const level = getLogLevel(log);
+                        stats[level]++;
+                    });
+                });
+            }
+
+            const total = stats.error + stats.warning + stats.info + stats.unknown;
+
+            logStatsChart.data.datasets[0].data = [
+                stats.error,
+                stats.warning,
+                stats.info,
+                stats.unknown
+            ];
+            logStatsChart.update();
+
+            document.getElementById('totalLogsCount').textContent = total.toLocaleString();
+            document.getElementById('errorRateStats').textContent = 
+                total > 0 ? `${((stats.error / total) * 100).toFixed(1)}%` : '0%';
+            document.getElementById('warningRateStats').textContent = 
+                total > 0 ? `${((stats.warning / total) * 100).toFixed(1)}%` : '0%';
+            document.getElementById('infoRateStats').textContent = 
+                total > 0 ? `${((stats.info / total) * 100).toFixed(1)}%` : '0%';
+        }
+
+        function showPanel(panelName) {
+            document.querySelectorAll('.panel-content').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            
+            document.getElementById(`${panelName}-panel`).style.display = 'block';
+            
+            document.querySelectorAll('.sidebar-nav li').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            event.currentTarget.classList.add('active');
+
+
+            const topbarTitle = document.querySelector('.topbar-title');
+            if (panelName === 'loki') {
+                topbarTitle.textContent = 'Loki Monitoring';
+            } else if (panelName === 'jenkins') {
+                topbarTitle.textContent = 'Jenkins Monitoring';
+            } else if (panelName === 'alerts') {
+                topbarTitle.textContent = 'Alert Management';
+            }
+        }
+
+        function refreshJenkinsStatus() {
+            const metrics = {
+                cpu: Math.floor(Math.random() * 100),
+                memory: Math.floor(Math.random() * 4),
+                network: Math.floor(Math.random() * 5)
+            };
+            
+            document.querySelector('.jenkins-metric:nth-child(1) .jenkins-metric-value').textContent = `${metrics.cpu}%`;
+            document.querySelector('.jenkins-metric:nth-child(1) .jenkins-metric-bar-fill').style.width = `${metrics.cpu}%`;
+            
+            document.querySelector('.jenkins-metric:nth-child(2) .jenkins-metric-value').textContent = `${metrics.memory}GB / 4GB`;
+            document.querySelector('.jenkins-metric:nth-child(2) .jenkins-metric-bar-fill').style.width = `${(metrics.memory / 4) * 100}%`;
+            
+            document.querySelector('.jenkins-metric:nth-child(3) .jenkins-metric-value').textContent = `${metrics.network}MB/s`;
+            document.querySelector('.jenkins-metric:nth-child(3) .jenkins-metric-bar-fill').style.width = `${(metrics.network / 5) * 100}%`;
+        }
+
+        function addAlertRule() {
+            console.log('Adding new alert rule...');
+        }
+
+        function editAlertRule(id) {
+            console.log('Editing alert rule:', id);
+        }
+
+        function deleteAlertRule(id) {
+            console.log('Deleting alert rule:', id);
+        }
+
+        function saveAlertConfig() {
+            const config = {
+                slackWebhook: document.getElementById('slackWebhook').value,
+                slackChannel: document.getElementById('slackChannel').value,
+                notificationFormat: document.getElementById('notificationFormat').value,
+                alertInterval: document.getElementById('alertInterval').value,
+                alertCooldown: document.getElementById('alertCooldown').value,
+                enableAlerts: document.getElementById('enableAlerts').checked
+            };
+            
+            console.log('Saving alert configuration:', config);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            initJenkinsCharts();
+            
+            setInterval(updateCharts, 2000); // Update every 2 seconds
+        });
+
+        let cpuChart, memoryChart, networkChart;
+        const maxDataPoints = 20;
+        const chartData = {
+            cpu: Array(maxDataPoints).fill(0),
+            memory: Array(maxDataPoints).fill(0),
+            network: Array(maxDataPoints).fill(0)
+        };
+
+        function initJenkinsCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#A7B1C2',
+                            maxTicksLimit: 4,
+                            callback: function(value) {
+                                return value + (this.id === 'cpuChart' ? '%' : this.id === 'memoryChart' ? 'GB' : 'MB/s');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(35, 38, 46, 0.95)',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#F05A28',
+                        borderColor: '#F05A28',
+                        borderWidth: 1,
+                        padding: 8,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const chartId = context.chart.canvas.id;
+                                if (chartId === 'cpuChart') {
+                                    return `CPU: ${value}%`;
+                                } else if (chartId === 'memoryChart') {
+                                    return `Memory: ${value}GB`;
+                                } else {
+                                    return `Network: ${value}MB/s`;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Generate initial data with realistic patterns
+            const generateInitialData = (min, max, points) => {
+                const data = [];
+                let value = (min + max) / 2;
+                for (let i = 0; i < points; i++) {
+                    // Add some random variation but keep it within bounds
+                    const change = (Math.random() - 0.5) * (max - min) * 0.2;
+                    value = Math.max(min, Math.min(max, value + change));
+                    data.push(Math.round(value * 10) / 10);
+                }
+                return data;
+            };
+
+            // CPU Chart
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            chartData.cpu = generateInitialData(30, 80, maxDataPoints);
+            cpuChart = new Chart(cpuCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: chartData.cpu,
+                        borderColor: '#F05A28',
+                        backgroundColor: 'rgba(240, 90, 40, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            ...chartOptions.scales.y,
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            // Memory Chart
+            const memoryCtx = document.getElementById('memoryChart').getContext('2d');
+            chartData.memory = generateInitialData(1, 4, maxDataPoints);
+            memoryChart = new Chart(memoryCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: chartData.memory,
+                        borderColor: '#7EB26D',
+                        backgroundColor: 'rgba(126, 178, 109, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            ...chartOptions.scales.y,
+                            min: 0,
+                            max: 4
+                        }
+                    }
+                }
+            });
+
+            // Network Chart
+            const networkCtx = document.getElementById('networkChart').getContext('2d');
+            chartData.network = generateInitialData(1, 5, maxDataPoints);
+            networkChart = new Chart(networkCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: chartData.network,
+                        borderColor: '#5794F2',
+                        backgroundColor: 'rgba(87, 148, 242, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            ...chartOptions.scales.y,
+                            min: 0,
+                            max: 5
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            // Generate new data points with smooth transitions
+            const generateNewValue = (currentValue, min, max) => {
+                const maxChange = (max - min) * 0.2; // Maximum 20% change
+                const change = (Math.random() * maxChange * 2) - maxChange;
+                let newValue = currentValue + change;
+                return Math.max(min, Math.min(max, Math.round(newValue * 10) / 10));
+            };
+
+            // Update CPU data
+            chartData.cpu.shift();
+            const newCpuValue = generateNewValue(chartData.cpu[chartData.cpu.length - 1], 30, 80);
+            chartData.cpu.push(newCpuValue);
+            cpuChart.data.datasets[0].data = chartData.cpu;
+            cpuChart.update('none');
+
+            // Update Memory data
+            chartData.memory.shift();
+            const newMemoryValue = generateNewValue(chartData.memory[chartData.memory.length - 1], 1, 4);
+            chartData.memory.push(newMemoryValue);
+            memoryChart.data.datasets[0].data = chartData.memory;
+            memoryChart.update('none');
+
+            // Update Network data
+            chartData.network.shift();
+            const newNetworkValue = generateNewValue(chartData.network[chartData.network.length - 1], 1, 5);
+            chartData.network.push(newNetworkValue);
+            networkChart.data.datasets[0].data = chartData.network;
+            networkChart.update('none');
+
+            // Update metric values with units
+            document.getElementById('cpuValue').textContent = `${newCpuValue.toFixed(1)}%`;
+            document.getElementById('memoryValue').textContent = `${newMemoryValue.toFixed(1)}GB / 4GB`;
+            document.getElementById('networkValue').textContent = `${newNetworkValue.toFixed(1)}MB/s`;
+        }
+
+        function refreshJobs() {
+            // Implementation for refreshing jobs
+            console.log('Refreshing jobs...');
+        }
+
+        function switchView(view) {
+            // Update tab styles
+            document.querySelectorAll('.jenkins-view-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // Show/hide views
+            document.getElementById('jobs-view').style.display = view === 'jobs' ? 'block' : 'none';
+            document.getElementById('pipelines-view').style.display = view === 'pipelines' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html> 
